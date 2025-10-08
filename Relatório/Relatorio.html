@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Atendimentos</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        
+        h1 {
+            color: #003a5f;
+            text-align: center;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+        }
+        
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        th {
+            background: #003a5f;
+            color: white;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Relatório de Atendimentos</h1>
+    <div style="text-align:center;">
+        <button onclick="exportarExcel()">Exportar para Excel</button>
+        <button onclick="excluirTodos()">Excluir Todos os Registros</button>
+        <button onclick="finalizarPendentes()">Finalizar Atendimentos Pendentes</button>
+    </div>
+    <table id="tabela">
+        <thead>
+            <tr>
+                <th>Senha</th>
+                <th>Hora Chegada</th>
+                <th>Hora Atendimento</th>
+                <th>Hora Finalização</th>
+                <th>Guichê</th>
+                <th>Tempo de Atendimento</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
+            authDomain: "aparecemdia.firebaseapp.com",
+            projectId: "aparecemdia"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+
+        async function carregarDados() {
+            const tbody = document.querySelector("#tabela tbody");
+            tbody.innerHTML = "";
+            const snapshot = await db.collection("senhas").orderBy("horarioChegada", "desc").get();
+            snapshot.forEach(doc => {
+                const s = doc.data();
+                const linha = document.createElement("tr");
+                const tempo = s.horarioAtendimento && s.horarioFinal ?
+                    ((s.horarioFinal.seconds - s.horarioAtendimento.seconds) / 60).toFixed(1) + " min" : "-";
+
+                linha.innerHTML = `
+                    <td>${s.numero}</td>
+                    <td>${s.horarioChegada?.toDate().toLocaleString()}</td>
+                    <td>${s.horarioAtendimento?.toDate().toLocaleString() || ""}</td>
+                    <td>${s.horarioFinal?.toDate().toLocaleString() || ""}</td>
+                    <td>${s.guiche || ""}</td>
+                    <td>${tempo}</td>
+                `;
+                tbody.appendChild(linha);
+            });
+        }
+
+        async function exportarExcel() {
+            const snapshot = await db.collection("senhas").orderBy("horarioChegada", "desc").get();
+            const dados = snapshot.docs.map(doc => {
+                const s = doc.data();
+                return {
+                    "Senha": s.numero,
+                    "Hora Chegada": s.horarioChegada ? s.horarioChegada.toDate().toLocaleString() : "",
+                    "Hora Atendimento": s.horarioAtendimento ? s.horarioAtendimento.toDate().toLocaleString() : "",
+                    "Hora de Finalização": s.horarioFinal ? s.horarioFinal.toDate().toLocaleString() : "",
+                    "Guichê": s.guiche || "",
+                    "Tempo de Atendimento": (s.horarioAtendimento && s.horarioFinal) ?
+                        ((s.horarioFinal.seconds - s.horarioAtendimento.seconds) / 60).toFixed(1) + " min" : "-"
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+            XLSX.writeFile(wb, "relatorio_atendimentos.xlsx");
+        }
+
+        async function excluirTodos() {
+            if (confirm("Tem certeza que deseja excluir todos os registros de senha?")) {
+                const snapshot = await db.collection("senhas").get();
+                const batch = db.batch();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                alert("Todos os registros foram excluídos.");
+                carregarDados();
+            }
+        }
+
+        async function finalizarPendentes() {
+            if (!confirm("Finalizar todos os atendimentos pendentes?")) return;
+
+            const snapshot = await db.collection("senhas")
+                .where("status", "==", "chamado")
+                .where("horarioFinal", "==", null)
+                .get();
+
+            const agora = firebase.firestore.Timestamp.fromDate(new Date());
+            const batch = db.batch();
+            snapshot.docs.forEach(doc => {
+                batch.update(doc.ref, {
+                    horarioFinal: agora
+                });
+            });
+
+            await batch.commit();
+            alert("Atendimentos pendentes finalizados.");
+            carregarDados();
+        }
+
+        carregarDados();
+    </script>
+</body>
+
+</html>

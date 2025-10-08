@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Chamador de Senhas</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial;
+            background: #e0e0e0;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 32px;
+        }
+        
+        #proximaSenha {
+            font-size: 24px;
+            color: #003a5f;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        
+        select,
+        button,
+        input {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 10px;
+        }
+        
+        #campoBusca {
+            width: 300px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Chamador de Senhas</h1>
+    <div id="proximaSenha">Nenhuma senha chamada ainda</div>
+
+    <select id="cadeira">
+    <option value="cadeira 1">Cadeira 1</option>
+    <option value="cadeira 2">Cadeira 2</option>
+    <option value="cadeira 3">Cadeira 3</option>
+    <option value="cadeira 4">Cadeira 4</option>
+    <option value="cadeira 5">Cadeira 5</option>
+  </select><br>
+
+    <button onclick="chamarProxima()">Chamar Próxima</button>
+    <button onclick="voltarSenhaAnterior()">Senha Anterior</button>
+    <button onclick="chamarAtencao()">Chamar Atenção 🔔</button><br>
+
+    <input type="text" id="campoBusca" placeholder="Digite a senha ex: A001" />
+    <button onclick="pesquisarSenha()">Pesquisar Senha</button>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
+            authDomain: "aparecemdia.firebaseapp.com",
+            projectId: "aparecemdia"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let ultimaSenhaDocRef = null;
+
+        async function chamarProxima() {
+            try {
+                const snapshot = await db.collection("senhas")
+                    .where("status", "==", "aguardando")
+                    .orderBy("horarioChegada")
+                    .limit(1)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    ultimaSenhaDocRef = doc.ref;
+
+                    const cadeira = document.getElementById("cadeira").value;
+                    const horarioAtendimento = firebase.firestore.Timestamp.fromDate(new Date());
+
+                    await doc.ref.update({
+                        status: "chamado",
+                        horarioAtendimento,
+                        cadeira,
+                        reforcarAudio: firebase.firestore.Timestamp.fromDate(new Date())
+                    });
+
+                    document.getElementById("proximaSenha").innerText = `Senha ${doc.data().numero} chamada no ${cadeira}`;
+                } else {
+                    document.getElementById("proximaSenha").innerText = "Nenhuma senha aguardando.";
+                }
+            } catch (erro) {
+                console.error("Erro ao chamar senha:", erro);
+                alert("Erro ao chamar senha.");
+            }
+        }
+
+        async function voltarSenhaAnterior() {
+            if (!ultimaSenhaDocRef) {
+                alert("Nenhuma senha chamada anteriormente.");
+                return;
+            }
+
+            try {
+                await ultimaSenhaDocRef.update({
+                    status: "aguardando",
+                    horarioAtendimento: null,
+                    cadeira: null,
+                    reforcarAudio: null
+                });
+
+                document.getElementById("proximaSenha").innerText = "Senha anterior retornou para fila.";
+            } catch (erro) {
+                console.error("Erro ao voltar senha:", erro);
+                alert("Erro ao voltar senha anterior.");
+            }
+        }
+
+        async function pesquisarSenha() {
+            const numero = document.getElementById("campoPesquisa").value.trim().toUpperCase();
+            if (!numero) return alert("Digite a senha a ser pesquisada.");
+
+            try {
+                const snapshot = await db.collection("senhas")
+                    .where("numero", "==", numero)
+                    .limit(1)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const doc = snapshot.docs[0];
+                    const dados = doc.data();
+                    const cadeira = document.getElementById("cadeira").value;
+                    const agora = firebase.firestore.Timestamp.fromDate(new Date());
+
+                    await doc.ref.update({
+                        status: "chamado", // Força a atualização
+                        horarioAtendimento: agora,
+                        cadeira: cadeira
+                    });
+
+                    document.getElementById("proximaSenha").innerText =
+                        `Senha ${dados.numero} chamada novamente no ${cadeira}`;
+                } else {
+                    document.getElementById("proximaSenha").innerText = "Senha não encontrada.";
+                }
+            } catch (e) {
+                console.error("Erro ao pesquisar senha:", e);
+                alert("Erro ao pesquisar senha.");
+            }
+        }
+
+
+
+        async function chamarAtencao() {
+            if (!ultimaSenhaDocRef) {
+                alert("Nenhuma senha chamada para reforçar.");
+                return;
+            }
+
+            try {
+                await ultimaSenhaDocRef.update({
+                    reforcarAudio: firebase.firestore.Timestamp.fromDate(new Date())
+                });
+
+                console.log("Chamado de atenção enviado.");
+                alert("Chamado de atenção enviado ao painel.");
+            } catch (erro) {
+                console.error("Erro ao reforçar áudio:", erro);
+                alert("Erro ao chamar atenção.");
+            }
+        }
+    </script>
+</body>
+
+</html>

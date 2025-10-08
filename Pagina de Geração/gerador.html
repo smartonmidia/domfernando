@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gerador de Senha</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            padding: 50px;
+            background: #f0f0f0;
+        }
+        
+        .botao-senha {
+            font-size: 22px;
+            padding: 20px 30px;
+            margin: 15px;
+            width: 80%;
+            max-width: 400px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        #ultimaSenhaGerada {
+            font-size: 28px;
+            margin-top: 30px;
+        }
+        
+        #printArea {
+            display: none;
+            font-family: monospace;
+            font-size: 20px;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Gerar Senha</h1>
+
+    <button class="botao-senha" onclick="gerarSenha('A')">A - Senha Única</button>
+    <button class="botao-senha" onclick="gerarSenha('B')">B - Cabelo</button>
+    <button class="botao-senha" onclick="gerarSenha('C')">C - Combo</button>
+    <button class="botao-senha" onclick="gerarSenha('D')">D - Preferencial</button>
+
+    <h2 id="ultimaSenhaGerada">Última senha: ---</h2>
+
+    <div id="printArea"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
+            authDomain: "aparecemdia.firebaseapp.com",
+            projectId: "aparecemdia"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        async function gerarSenha(tipo) {
+            try {
+                const snapshot = await db.collection("senhas")
+                    .where("tipo", "==", tipo)
+                    .orderBy("numeroSequencial", "desc")
+                    .limit(1)
+                    .get();
+
+                let proximoNumero = 1;
+                if (!snapshot.empty) {
+                    proximoNumero = snapshot.docs[0].data().numeroSequencial + 1;
+                }
+
+                const numeroCompleto = `${tipo}${proximoNumero.toString().padStart(3, '0')}`;
+                const now = new Date();
+
+                await db.collection("senhas").add({
+                    numero: numeroCompleto,
+                    tipo,
+                    numeroSequencial: proximoNumero,
+                    status: "aguardando",
+                    horarioChegada: firebase.firestore.Timestamp.fromDate(now),
+                    horarioAtendimento: null,
+                    horarioFinal: null,
+                    cadeira: null
+                });
+
+                document.getElementById("ultimaSenhaGerada").innerText = `Última senha: ${numeroCompleto}`;
+                imprimirSenha(numeroCompleto, tipo);
+            } catch (erro) {
+                console.error("Erro ao gerar senha:", erro);
+                alert("Ocorreu um erro ao gerar a senha.");
+            }
+        }
+
+        function imprimirSenha(numero, tipo) {
+            const div = document.getElementById("printArea");
+            div.innerHTML = `
+                <div style="width: 56mm; text-align: center;">
+                    <h2 style="margin: 0;">ATENDIMENTO</h2>
+                    <p style="font-size: 20px; margin: 10px 0;">Senha:</p>
+                    <h1 style="font-size: 42px; margin: 0;">${numero}</h1>
+                    <p style="margin: 10px 0;">Tipo: ${tipo}</p>
+                    <p style="font-size: 14px;">Aguarde sua vez</p>
+                    <p style="font-size: 12px;">${new Date().toLocaleString()}</p>
+                </div>
+            `;
+            const printWindow = window.open('', '', 'width=400,height=600');
+            printWindow.document.write('<html><head><title>Imprimir</title></head><body>');
+            printWindow.document.write(div.innerHTML);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    </script>
+</body>
+
+
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gerenciador de Mídias e Frases</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background: #f4f4f4;
+        }
+        
+        h2 {
+            color: #003a5f;
+        }
+        
+        section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 0 10px #ccc;
+        }
+        
+        input,
+        select,
+        button {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            max-width: 500px;
+            font-size: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        
+        .item-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #eee;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+        }
+        
+        .item-container button {
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        
+        .item-container a {
+            margin-right: 10px;
+            text-decoration: underline;
+            color: blue;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Gerenciador de Mídias e Frases</h1>
+
+    <section>
+        <h2>Adicionar Mídia do Google Drive</h2>
+        <input type="text" id="linkMidia" placeholder="Cole o link do Google Drive aqui">
+
+        <label for="tipoMidia">Tipo da Mídia</label>
+        <select id="tipoMidia">
+            <option value="IMAGEM">Imagem</option>
+            <option value="VIDEO">Vídeo</option>
+        </select>
+
+        <label for="ordemMidia">Ordem de Exibição</label>
+        <input type="number" id="ordemMidia" placeholder="Ex: 1, 2, 3..." min="1">
+
+        <label>
+            <input type="checkbox" id="ativoMidia" checked>
+            Ativo
+        </label>
+
+        <button onclick="adicionarMidia()">Salvar</button>
+    </section>
+
+    <section>
+        <h2>Mídias Cadastradas</h2>
+        <div id="listaMidias"></div>
+    </section>
+
+    <section>
+        <h2>Frases de Rodapé</h2>
+        <input type="text" id="novaFrase" placeholder="Digite uma nova frase..." maxlength="100">
+        <button onclick="adicionarFrase()">Adicionar Frase</button>
+        <div id="fraseList"></div>
+    </section>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
+            authDomain: "aparecemdia.firebaseapp.com",
+            projectId: "aparecemdia",
+            storageBucket: "aparecemdia.firebasestorage.app",
+            messagingSenderId: "161003542213",
+            appId: "1:161003542213:web:6c252231f412a9bfe142ac"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function extrairID(link) {
+            const match = link.match(/\/d\/([\w-]+)/);
+            return match ? match[1] : null;
+        }
+
+        async function adicionarMidia() {
+            const link = document.getElementById("linkMidia").value.trim();
+            const tipo = document.getElementById("tipoMidia").value.trim().toUpperCase();
+            const ordem = parseInt(document.getElementById("ordemMidia").value.trim());
+            const ativo = document.getElementById("ativoMidia").checked;
+
+            if (!link || isNaN(ordem)) {
+                alert("Verifique o link e a ordem antes de salvar.");
+                return;
+            }
+
+            // Se for Google Drive, converte para o formato direto
+            let urlFinal = link;
+            const driveMatch = link.match(/\/d\/([\w-]+)/);
+            if (driveMatch) {
+                const id = driveMatch[1];
+                urlFinal = `https://drive.google.com/uc?export=download&id=${id}`;
+            }
+
+            await db.collection("midias").add({
+                url: urlFinal,
+                tipo,
+                ordem,
+                ativo
+            });
+
+            document.getElementById("linkMidia").value = "";
+            document.getElementById("ordemMidia").value = "";
+            document.getElementById("ativoMidia").checked = true;
+
+            listarMidias();
+        }
+
+
+        async function listarMidias() {
+            const container = document.getElementById("listaMidias");
+            container.innerHTML = "";
+
+            const snapshot = await db.collection("midias").orderBy("ordem").get();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const div = document.createElement("div");
+                div.className = "item-container";
+                div.innerHTML = `
+                    <span>${data.tipo.toUpperCase()} | Ordem: ${data.ordem} | ${data.ativo ? "Ativo" : "Inativo"}</span>
+                    <div>
+                        <a href="${data.url}" target="_blank">Ver</a>
+                        <button onclick="excluirMidia('${doc.id}')">Excluir</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function excluirMidia(id) {
+            await db.collection("midias").doc(id).delete();
+            listarMidias();
+        }
+
+        async function adicionarFrase() {
+            const frase = document.getElementById("novaFrase").value.trim();
+            if (!frase) return alert("Digite uma frase.");
+
+            const frasesDoc = db.collection("config").doc("frases");
+            const doc = await frasesDoc.get();
+            const frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
+
+            frases.push(frase);
+            await frasesDoc.set({
+                frasesRodape: frases
+            });
+
+            document.getElementById("novaFrase").value = '';
+            listarFrases();
+        }
+
+        async function listarFrases() {
+            const fraseList = document.getElementById("fraseList");
+            fraseList.innerHTML = '';
+
+            const doc = await db.collection("config").doc("frases").get();
+            const frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
+
+            frases.forEach((frase, index) => {
+                const div = document.createElement("div");
+                div.className = 'item-container';
+                div.innerHTML = `
+                    <span>${frase}</span>
+                    <button onclick="excluirFrase(${index})">Excluir</button>
+                `;
+                fraseList.appendChild(div);
+            });
+        }
+
+        async function excluirFrase(index) {
+            const frasesDoc = db.collection("config").doc("frases");
+            const doc = await frasesDoc.get();
+            let frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
+
+            frases.splice(index, 1);
+            await frasesDoc.set({
+                frasesRodape: frases
+            });
+
+            listarFrases();
+        }
+
+        // Inicialização
+        listarMidias();
+        listarFrases();
+    </script>
+</body>
+
+</html>

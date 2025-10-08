@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Central de Gerenciamento</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #f2f6fc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 50px 20px;
+            margin: 0;
+        }
+        
+        h1 {
+            color: #003a5f;
+            margin-bottom: 40px;
+            font-size: 36px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        a {
+            background: #003a5f;
+            color: white;
+            padding: 18px 20px;
+            border-radius: 12px;
+            font-size: 18px;
+            text-decoration: none;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: background 0.2s ease;
+        }
+        
+        a:hover {
+            background: #005a99;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Central de Gerenciamento</h1>
+
+    <div class="grid">
+        <a href="Pagina de Geração/gerador.html">🧾 Gerador de Senhas</a>
+        <a href="Painel de Exibição/painelexibicao.html">📺 Painel de Exibição</a>
+        <a href="Pagina Chamador/chamador.html">🎙️ Chamador - Cadeira</a>
+        <a href="Pagina de Upload/painelupload.html">🖼️ Gerenciar Mídias e Frases</a>
+        <a href="Relatório/Relatorio.html">📊 Relatório de Atendimentos</a>
+    </div>
+</body>
+
+</html>

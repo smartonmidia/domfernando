@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Painel de Chamadas</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #e8f0fe;
+            overflow: hidden;
+        }
+        
+        #cabecalho {
+            height: 10vh;
+            background: #003a5f;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            box-sizing: border-box;
+        }
+        
+        #cabecalho img {
+            height: 70%;
+        }
+        
+        #main {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            height: 80vh;
+            width: 100vw;
+        }
+        
+        #ladoEsquerdo {
+            position: relative;
+            background: black;
+            overflow: hidden;
+            border-right: 5px solid #003a5f;
+        }
+        
+        #publicidadeImg,
+        #publicidadeVideo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        #ladoDireito {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        #senhaAtual,
+        #historico {
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: white;
+        }
+        
+        #senhaAtual {
+            background: #003a5f;
+            color: white;
+            text-align: center;
+        }
+        
+        #senhaAtualTexto {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        #senhaAtualNumero {
+            font-size: 96px;
+            font-weight: 900;
+            color: #ffcc00;
+            animation: pulse 1s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from {
+                transform: scale(1);
+            }
+            to {
+                transform: scale(1.05);
+            }
+        }
+        
+        #mesaAtual {
+            font-size: 42px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        
+        #historicoTitulo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #003a5f;
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #003a5f;
+            padding-bottom: 5px;
+        }
+        
+        #historicoList div {
+            display: flex;
+            justify-content: space-between;
+            font-size: 22px;
+            padding: 6px 10px;
+            border-bottom: 1px dashed #ccc;
+            text-transform: uppercase;
+        }
+        
+        #rodape {
+            height: 10vh;
+            width: 100%;
+            background: #212529;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 60px;
+            box-sizing: border-box;
+            font-size: 22px;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+        
+        #fraseRodape {
+            flex: 1;
+            text-align: left;
+        }
+        
+        #dataHoraRodape {
+            position: relative;
+            width: 350px;
+            height: 28px;
+            text-align: right;
+        }
+        
+        #blocoDataHora,
+        #blocoTemperatura {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 100%;
+            transition: opacity 1s ease-in-out;
+        }
+        
+        .fade-in {
+            opacity: 1;
+            z-index: 1;
+        }
+        
+        .fade-out {
+            opacity: 0;
+            z-index: 0;
+        }
+        
+        .icon {
+            margin-right: 5px;
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+    <div id="cabecalho">
+        <img src="./audio/logo.png" alt="Logo" />
+    </div>
+
+    <div id="main">
+        <div id="ladoEsquerdo">
+            <img id="publicidadeImg" alt="Publicidade" />
+            <video id="publicidadeVideo" muted autoplay loop></video>
+        </div>
+
+        <div id="ladoDireito">
+            <div id="senhaAtual">
+                <div id="senhaAtualTexto">SENHA</div>
+                <div id="senhaAtualNumero">----</div>
+                <div id="mesaAtual">Cadeira --</div>
+            </div>
+            <div id="historico">
+                <div id="historicoTitulo">ÚLTIMAS CHAMADAS</div>
+                <div id="historicoList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rodape">
+        <div id="fraseRodape">Aguarde sua vez...</div>
+        <div id="dataHoraRodape">
+            <span id="blocoDataHora" class="fade-in">
+                <span class="icon">📅</span><span id="dataAtual"></span> |
+            <span class="icon">⏰</span><span id="horaAtual"></span>
+            </span>
+            <span id="blocoTemperatura" class="fade-out">
+                <span class="icon">🌡️</span><span id="temperaturaLocal"></span>
+            </span>
+        </div>
+    </div>
+
+    <audio id="audioChamada" src="./audio/chamada.wav"></audio>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
+            authDomain: "aparecemdia.firebaseapp.com",
+            projectId: "aparecemdia"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const senhaNumeroEl = document.getElementById("senhaAtualNumero");
+        const mesaEl = document.getElementById("mesaAtual");
+        const historicoListEl = document.getElementById("historicoList");
+        const audioChamada = document.getElementById("audioChamada");
+
+        let ultimaSenhaId = null;
+        let ultimoReforco = null;
+
+        db.collection("senhas")
+            .where("status", "==", "chamado")
+            .orderBy("horarioAtendimento", "desc")
+            .limit(5)
+            .onSnapshot(snapshot => {
+                const docs = snapshot.docs;
+                if (docs.length > 0) {
+                    const atual = docs[0].data();
+                    const docId = docs[0].id;
+
+                    if (ultimaSenhaId !== docId || (atual.reforcarAudio && (!ultimoReforco || atual.reforcarAudio.toMillis() !== ultimoReforco))) {
+                        senhaNumeroEl.innerText = atual.numero;
+                        mesaEl.innerText = atual.cadeira || "cadeira --";
+                        audioChamada.currentTime = 0;
+                        audioChamada.play();
+                        ultimaSenhaId = docId;
+                        ultimoReforco = atual.reforcarAudio ? atual.reforcarAudio.toMillis() : null;
+                    }
+                }
+
+                historicoListEl.innerHTML = "";
+                docs.forEach(doc => {
+                    const dado = doc.data();
+                    const div = document.createElement("div");
+                    div.innerHTML = `<span>Senha ${dado.numero}</span><span>${dado.cadeira || "Cadeira ?"}</span>`;
+                    historicoListEl.appendChild(div);
+                });
+            });
+
+        function mostrarFallback() {
+            const imgEl = document.getElementById("publicidadeImg");
+            const videoEl = document.getElementById("publicidadeVideo");
+            imgEl.src = "https://via.placeholder.com/800x450?text=Sem+publicidade+disponível";
+            imgEl.style.display = "block";
+            imgEl.style.opacity = 1;
+            videoEl.style.display = "none";
+            videoEl.style.opacity = 0;
+        }
+
+        async function carregarMidiasDoFirestore() {
+            const imgEl = document.getElementById("publicidadeImg");
+            const videoEl = document.getElementById("publicidadeVideo");
+
+            const snapshot = await db.collection("midias")
+                .where("ativo", "==", true)
+                .orderBy("ordem")
+                .get();
+
+            const midias = snapshot.docs.map(doc => doc.data());
+            if (midias.length === 0) return mostrarFallback();
+
+            let index = 0;
+
+            async function mostrarMidia() {
+                const midia = midias[index];
+                const tipo = (midia.tipo || "").toLowerCase().trim();
+
+                imgEl.style.opacity = 0;
+                videoEl.style.opacity = 0;
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                if (tipo === "video") {
+                    imgEl.style.display = "none";
+                    videoEl.src = midia.url;
+                    videoEl.style.display = "block";
+                    videoEl.load();
+                    videoEl.play();
+                    videoEl.style.opacity = 1;
+                } else if (tipo === "imagem") {
+                    videoEl.pause();
+                    videoEl.style.display = "none";
+                    imgEl.src = midia.url;
+                    imgEl.style.display = "block";
+                    imgEl.style.opacity = 1;
+                } else {
+                    mostrarFallback();
+                }
+
+                index = (index + 1) % midias.length;
+            }
+
+            mostrarMidia();
+            setInterval(mostrarMidia, 25000);
+        }
+
+        // Atualizar data/hora
+        setInterval(() => {
+            const agora = new Date();
+            document.getElementById("dataAtual").innerText = agora.toLocaleDateString();
+            document.getElementById("horaAtual").innerText = agora.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }, 1000);
+
+        // Frases do rodapé
+        db.collection("config").doc("frases").get().then(doc => {
+            const frases = doc.data().frasesRodape || ["Aguarde sua vez..."];
+            let index = 0;
+            setInterval(() => {
+                document.getElementById("fraseRodape").innerText = frases[index];
+                index = (index + 1) % frases.length;
+            }, 10000);
+        });
+
+        // Alternância entre Data/Hora e Temperatura com fade
+        const cidades = ["São Paulo", "Santos", "Guarujá", "Bertioga", "São Sebastião", "Praia Grande", "Mongaguá", "Ilha Comprida"];
+        let cidadeIndex = 0;
+
+        async function atualizarTemperatura() {
+            const cidade = cidades[cidadeIndex];
+            try {
+                const res = await fetch(`https://wttr.in/${encodeURIComponent(cidade)}?format=%t`);
+                const temp = await res.text();
+                document.getElementById("temperaturaLocal").innerText = `${cidade}: ${temp.replace('+', '')}`;
+            } catch {
+                document.getElementById("temperaturaLocal").innerText = `${cidade}: N/A`;
+            }
+            cidadeIndex = (cidadeIndex + 1) % cidades.length;
+        }
+
+        atualizarTemperatura();
+        setInterval(atualizarTemperatura, 60000);
+
+        let mostrarDataHora = true;
+        setInterval(() => {
+            const blocoData = document.getElementById("blocoDataHora");
+            const blocoTemp = document.getElementById("blocoTemperatura");
+
+            if (mostrarDataHora) {
+                blocoData.classList.remove("fade-in");
+                blocoData.classList.add("fade-out");
+                blocoTemp.classList.remove("fade-out");
+                blocoTemp.classList.add("fade-in");
+            } else {
+                blocoTemp.classList.remove("fade-in");
+                blocoTemp.classList.add("fade-out");
+                blocoData.classList.remove("fade-out");
+                blocoData.classList.add("fade-in");
+            }
+
+            mostrarDataHora = !mostrarDataHora;
+        }, 10000);
+
+        document.addEventListener("DOMContentLoaded", carregarMidiasDoFirestore);
+    </script>
+</body>
+
+</html>
