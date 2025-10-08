@@ -45,12 +45,12 @@
     <div id="proximaSenha">Nenhuma senha chamada ainda</div>
 
     <select id="Cadeira">
-    <option value="Cadeira 1">Cadeira 1</option>
-    <option value="Cadeira 2">Cadeira 2</option>
-    <option value="Cadeira 3">Cadeira 3</option>
-    <option value="Cadeira 4">Cadeira 4</option>
-    <option value="Cadeira 5">Cadeira 5</option>
-  </select><br>
+        <option value="Cadeira 1">Cadeira 1</option>
+        <option value="Cadeira 2">Cadeira 2</option>
+        <option value="Cadeira 3">Cadeira 3</option>
+        <option value="Cadeira 4">Cadeira 4</option>
+        <option value="Cadeira 5">Cadeira 5</option>
+    </select><br>
 
     <button onclick="chamarProxima()">Chamar Próxima</button>
     <button onclick="voltarSenhaAnterior()">Senha Anterior</button>
@@ -86,6 +86,20 @@
                     const Cadeira = document.getElementById("Cadeira").value;
                     const horarioAtendimento = firebase.firestore.Timestamp.fromDate(new Date());
 
+                    // 🔹 Finaliza automaticamente o atendimento anterior dessa cadeira, se ainda não tiver horárioFinal
+                    const pendentes = await db.collection("senhas")
+                        .where("Cadeira", "==", Cadeira)
+                        .where("horarioFinal", "==", null)
+                        .get();
+
+                    const agora = firebase.firestore.Timestamp.fromDate(new Date());
+                    const batch = db.batch();
+                    pendentes.docs.forEach(docAntigo => {
+                        batch.update(docAntigo.ref, { horarioFinal: agora });
+                    });
+                    await batch.commit();
+
+                    // 🔹 Atualiza a nova senha chamada
                     await doc.ref.update({
                         status: "chamado",
                         horarioAtendimento,
@@ -125,7 +139,7 @@
         }
 
         async function pesquisarSenha() {
-            const numero = document.getElementById("campoPesquisa").value.trim().toUpperCase();
+            const numero = document.getElementById("campoBusca").value.trim().toUpperCase();
             if (!numero) return alert("Digite a senha a ser pesquisada.");
 
             try {
@@ -140,8 +154,21 @@
                     const Cadeira = document.getElementById("Cadeira").value;
                     const agora = firebase.firestore.Timestamp.fromDate(new Date());
 
+                    // 🔹 Finaliza automaticamente o atendimento anterior dessa cadeira
+                    const pendentes = await db.collection("senhas")
+                        .where("Cadeira", "==", Cadeira)
+                        .where("horarioFinal", "==", null)
+                        .get();
+
+                    const batch = db.batch();
+                    pendentes.docs.forEach(docAntigo => {
+                        batch.update(docAntigo.ref, { horarioFinal: agora });
+                    });
+                    await batch.commit();
+
+                    // 🔹 Atualiza senha pesquisada
                     await doc.ref.update({
-                        status: "chamado", // Força a atualização
+                        status: "chamado",
                         horarioAtendimento: agora,
                         Cadeira: Cadeira
                     });
@@ -156,8 +183,6 @@
                 alert("Erro ao pesquisar senha.");
             }
         }
-
-
 
         async function chamarAtencao() {
             if (!ultimaSenhaDocRef) {
@@ -180,7 +205,4 @@
     </script>
 </body>
 
-
 </html>
-
-
