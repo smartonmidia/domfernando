@@ -248,7 +248,7 @@
 
                     if (ultimaSenhaId !== docId || (atual.reforcarAudio && (!ultimoReforco || atual.reforcarAudio.toMillis() !== ultimoReforco))) {
                         senhaNumeroEl.innerText = atual.numero;
-                        mesaEl.innerText = atual.cadeira || "Cadeira --";
+                        mesaEl.innerText = atual.Cadeira || "Cadeira --";
                         audioChamada.currentTime = 0;
                         audioChamada.play();
                         ultimaSenhaId = docId;
@@ -260,7 +260,7 @@
                 docs.forEach(doc => {
                     const dado = doc.data();
                     const div = document.createElement("div");
-                    div.innerHTML = `<span>Senha ${dado.numero}</span><span>${dado.cadeira || "Cadeira ?"}</span>`;
+                    div.innerHTML = `<span>Senha ${dado.numero}</span><span>${dado.Cadeira || "Cadeira ?"}</span>`;
                     historicoListEl.appendChild(div);
                 });
             });
@@ -387,4 +387,5 @@
 
 
 </html>
+
 
