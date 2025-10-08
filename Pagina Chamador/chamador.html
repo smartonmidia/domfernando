@@ -44,12 +44,12 @@
     <h1>Chamador de Senhas</h1>
     <div id="proximaSenha">Nenhuma senha chamada ainda</div>
 
-    <select id="cadeira">
-    <option value="cadeira 1">Cadeira 1</option>
-    <option value="cadeira 2">Cadeira 2</option>
-    <option value="cadeira 3">Cadeira 3</option>
-    <option value="cadeira 4">Cadeira 4</option>
-    <option value="cadeira 5">Cadeira 5</option>
+    <select id="Cadeira">
+    <option value="Cadeira 1">Cadeira 1</option>
+    <option value="Cadeira 2">Cadeira 2</option>
+    <option value="Cadeira 3">Cadeira 3</option>
+    <option value="Cadeira 4">Cadeira 4</option>
+    <option value="Cadeira 5">Cadeira 5</option>
   </select><br>
 
     <button onclick="chamarProxima()">Chamar Próxima</button>
@@ -83,17 +83,17 @@
                     const doc = snapshot.docs[0];
                     ultimaSenhaDocRef = doc.ref;
 
-                    const cadeira = document.getElementById("cadeira").value;
+                    const Cadeira = document.getElementById("Cadeira").value;
                     const horarioAtendimento = firebase.firestore.Timestamp.fromDate(new Date());
 
                     await doc.ref.update({
                         status: "chamado",
                         horarioAtendimento,
-                        cadeira,
+                        Cadeira,
                         reforcarAudio: firebase.firestore.Timestamp.fromDate(new Date())
                     });
 
-                    document.getElementById("proximaSenha").innerText = `Senha ${doc.data().numero} chamada no ${cadeira}`;
+                    document.getElementById("proximaSenha").innerText = `Senha ${doc.data().numero} chamada no ${Cadeira}`;
                 } else {
                     document.getElementById("proximaSenha").innerText = "Nenhuma senha aguardando.";
                 }
@@ -113,7 +113,7 @@
                 await ultimaSenhaDocRef.update({
                     status: "aguardando",
                     horarioAtendimento: null,
-                    cadeira: null,
+                    Cadeira: null,
                     reforcarAudio: null
                 });
 
@@ -137,17 +137,17 @@
                 if (!snapshot.empty) {
                     const doc = snapshot.docs[0];
                     const dados = doc.data();
-                    const cadeira = document.getElementById("cadeira").value;
+                    const Cadeira = document.getElementById("Cadeira").value;
                     const agora = firebase.firestore.Timestamp.fromDate(new Date());
 
                     await doc.ref.update({
                         status: "chamado", // Força a atualização
                         horarioAtendimento: agora,
-                        cadeira: cadeira
+                        Cadeira: Cadeira
                     });
 
                     document.getElementById("proximaSenha").innerText =
-                        `Senha ${dados.numero} chamada novamente no ${cadeira}`;
+                        `Senha ${dados.numero} chamada novamente no ${Cadeira}`;
                 } else {
                     document.getElementById("proximaSenha").innerText = "Senha não encontrada.";
                 }
@@ -179,5 +179,6 @@
         }
     </script>
 </body>
+
 
 </html>
