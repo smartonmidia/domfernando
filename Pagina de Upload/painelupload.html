@@ -1,237 +1,394 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Gerenciador de Mídias e Frases</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background: #f4f4f4;
-        }
-        
-        h2 {
-            color: #003a5f;
-        }
-        
-        section {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 0 10px #ccc;
-        }
-        
-        input,
-        select,
-        button {
-            display: block;
-            margin: 10px 0;
-            padding: 10px;
-            width: 100%;
-            max-width: 500px;
-            font-size: 16px;
-        }
-        
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-        
-        .item-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #eee;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 6px;
-        }
-        
-        .item-container button {
-            background: red;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        
-        .item-container a {
-            margin-right: 10px;
-            text-decoration: underline;
-            color: blue;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>Gerenciador de Mídias — Unificado</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Firebase compat (apenas Firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root{ --bg:#f6f8fb; --surface:#fff; --muted:#6b7280; --primary:#1058a2; --danger:#ef4444; --radius:12px; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0}
+    body{padding:28px; background:linear-gradient(180deg,var(--bg), #eef3f8); color:#072433}
+    .header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px}
+    .brand{display:flex; gap:12px; align-items:center}
+    .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#0b6fb0);color:white;display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{margin:0;font-size:18px}
+    .subtitle{margin:0;color:var(--muted);font-size:13px}
+    .container{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
+    @media (max-width:980px){.container{grid-template-columns:1fr}}
+    .panel{background:var(--surface);border-radius:var(--radius);padding:16px;box-shadow:0 8px 28px rgba(11,22,39,0.05);border:1px solid rgba(10,20,30,0.03)}
+    .controls-row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .search{flex:1;display:flex;gap:8px;align-items:center}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e6eef6;background:#fbfeff}
+    .btn{background:var(--primary);color:white;border:none;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;color:var(--primary);border:1px solid rgba(16,88,162,0.12)}
+    .list{display:flex;flex-direction:column;gap:12px;margin-top:6px}
+    .card{display:flex;gap:12px;align-items:center;padding:12px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfeff);border:1px solid #f0f6fb}
+    .thumb{width:140px;height:84px;border-radius:8px;overflow:hidden;flex:0 0 140px;background:linear-gradient(180deg,#eef7ff,#f6fcff);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+    .meta{flex:1;display:flex;flex-direction:column;gap:6px}
+    .meta .title{font-weight:700;font-size:15px;color:#052b3a}
+    .meta .info{color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+    .action-btn{background:#f0f7ff;color:#0b6fb0;border:none;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600}
+    .action-btn.copy{background:#eefaf6;color:#0b8f7b}
+    .action-btn.danger{background:transparent;color:var(--danger);border:1px solid rgba(239,68,68,0.08)}
+    .side{display:flex;flex-direction:column;gap:12px}
+    .small{padding:10px;border-radius:10px;border:1px solid #e6eef6;background:#fbfeff}
+    .muted{color:var(--muted);font-size:13px}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(8,12,20,0.45);display:none;align-items:center;justify-content:center;z-index:80}
+    .modal-backdrop.show{display:flex}
+    .modal{width:100%;max-width:680px;border-radius:14px;padding:20px;background:linear-gradient(180deg,var(--surface),#fbfeff);box-shadow:0 30px 80px rgba(11,22,39,0.25)}
+    .toast{position:fixed;right:20px;bottom:20px;background:#0b6fb0;color:white;padding:10px 14px;border-radius:10px;z-index:90;display:none}
+    .toast.show{display:block}
+    .disabled{opacity:.5;pointer-events:none}
+    .item-container{display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px;border-radius:8px;border:1px solid #f0f6fb}
+  </style>
 </head>
-
 <body>
-    <h1>Gerenciador de Mídias e Frases</h1>
+  <header class="header">
+    <div class="brand">
+      <div class="logo" role="img" aria-label="Logo da empresa">MD</div>
+      <div>
+        <h1>Gerenciador de Mídias</h1>
+        <p class="subtitle">Unificado — mídias, upload para Catbox, frases de rodapé e edição simples</p>
+      </div>
+    </div>
 
-    <section>
-        <h2>Adicionar Mídia do Google Drive</h2>
-        <input type="text" id="linkMidia" placeholder="Cole o link do Google Drive aqui">
+    <div style="text-align:right;color:var(--muted);font-size:13px">Usuário autenticação</div>
+  </header>
 
-        <label for="tipoMidia">Tipo da Mídia</label>
-        <select id="tipoMidia">
-            <option value="IMAGEM">Imagem</option>
-            <option value="VIDEO">Vídeo</option>
-        </select>
+  <main class="container">
+    <!-- left -->
+    <section class="panel">
+      <div class="controls-row">
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="Pesquisar por nome, URL ou tipo..." oninput="listarMidias()" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="refreshBtn" class="btn.ghost btn" onclick="listarMidias()" style="background:#f7fbff;color:var(--primary);border:1px solid rgba(16,88,162,0.06)">Atualizar</button>
+          <button id="openForm" class="btn">Adicionar / Enviar Mídia</button>
+        </div>
+      </div>
 
-        <label for="ordemMidia">Ordem de Exibição</label>
-        <input type="number" id="ordemMidia" placeholder="Ex: 1, 2, 3..." min="1">
-
-        <label>
-            <input type="checkbox" id="ativoMidia" checked>
-            Ativo
-        </label>
-
-        <button onclick="adicionarMidia()">Salvar</button>
+      <div id="list" class="list"></div>
+      <div id="noMedia" class="muted" style="padding:12px; display:none;">Nenhuma mídia cadastrada.</div>
     </section>
 
-    <section>
-        <h2>Mídias Cadastradas</h2>
-        <div id="listaMidias"></div>
-    </section>
+    <!-- right -->
+    <aside class="side">
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Frases de Rodapé</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="novaFrase" class="small" placeholder="Digite uma nova frase..." maxlength="120" />
+          <button id="addFraseBtn" class="btn" onclick="adicionarFrase()">Adicionar</button>
+        </div>
+        <div id="fraseList" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
 
-    <section>
-        <h2>Frases de Rodapé</h2>
-        <input type="text" id="novaFrase" placeholder="Digite uma nova frase..." maxlength="100">
-        <button onclick="adicionarFrase()">Adicionar Frase</button>
-        <div id="fraseList"></div>
-    </section>
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0">Ações Rápidas</h3>
+        <div class="muted">Upload em background usa Catbox (proxy público). Em produção, use backend próprio.</div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-direction:column;align-items:stretch">
+          <button id="chooseFileBtn" class="btn.ghost">Selecionar Arquivo</button>
+          <button class="btn.ghost" onclick="limparFormulario()">Limpar Form</button>
+          <div style="margin-top:8px" class="muted">Observação: Como não há autenticação, todas as operações gravam diretamente no Firestore. Gerencie regras de segurança no console do Firebase.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyAZ0P7nNu-yeN9zvthLIHpTVafYUlCWId0",
-            authDomain: "aparecemdia.firebaseapp.com",
-            projectId: "aparecemdia",
-            storageBucket: "aparecemdia.firebasestorage.app",
-            messagingSenderId: "161003542213",
-            appId: "1:161003542213:web:6c252231f412a9bfe142ac"
+  <!-- Modal -->
+  <div id="backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" role="document">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <strong style="font-size:16px">Adicionar / Enviar Mídia</strong>
+          <div class="muted" style="margin-top:6px">Cole link (Drive/Catbox) ou selecione arquivo local.</div>
+        </div>
+        <div><button id="closeModal" class="btn.ghost">Fechar</button></div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-direction:column">
+        <input id="nomeMidia" type="text" class="small" placeholder="Nome da mídia — ex: Promo Outubro" />
+        <input id="linkMidia" type="text" class="small" placeholder="Cole o link do Google Drive ou Catbox aqui" onblur="detectaTipoPorUrl()" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <input id="ordemMidia" type="number" class="small" placeholder="Ordem (ex: 1)" />
+          <div style="display:flex;gap:10px;align-items:center">
+            <label style="display:flex;gap:8px;align-items:center"><input id="ativoMidia" type="checkbox" checked /> <span class="muted">Ativo</span></label>
+            <label style="display:flex;gap:8px;align-items:center"><input id="salvarAuto" type="checkbox" /> <span class="muted">Salvar automático após upload</span></label>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button id="saveLinkBtn" class="btn" onclick="adicionarMidia()">Salvar Mídia (link)</button>
+          <button id="chooseFileBtnModal" class="btn.ghost">Selecionar arquivo local</button>
+          <button class="btn.ghost" onclick="limparFormulario()">Limpar</button>
+        </div>
+
+        <div id="bgStatus" class="muted" style="margin-top:4px;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <input id="fileInput" type="file" accept="image/*,video/*" style="display:none" />
+  <div id="toast" class="toast"></div>
+
+  <script>
+    /* ========== SUA firebaseConfig AQUI ========== */
+    const firebaseConfig = {
+            apiKey: "AIzaSyCCTMSkV-y_I9AipbTJQVrJfQw_bkWCKzY",
+            authDomain: "senhamidia.firebaseapp.com",
+            projectId: "senhamidia",
+            storageBucket: "senhamidia.appspot.com",
+            messagingSenderId: "161570655348",
+            appId: "1:161570655348:web:2da0962394a9374bb5d521"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+    function escapeHtml(s){ return String(s || '').replace(/[&<>\"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); }); }
 
-        function extrairID(link) {
-            const match = link.match(/\/d\/([\w-]+)/);
-            return match ? match[1] : null;
+    // inicializa Firebase
+    if(!firebaseConfig){ console.error('firebaseConfig não encontrado.'); }
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    /****************
+     * UI HELPERS
+     ****************/
+    const backdrop = document.getElementById('backdrop');
+    const openFormBtn = document.getElementById('openForm');
+    const closeModalBtn = document.getElementById('closeModal');
+    const toastEl = document.getElementById('toast');
+
+    function showModal(show){ backdrop.classList.toggle('show', !!show); backdrop.setAttribute('aria-hidden', !show); }
+    openFormBtn?.addEventListener('click', ()=> showModal(true));
+    closeModalBtn?.addEventListener('click', ()=> showModal(false));
+
+    function toast(msg, time=1800){ toastEl.textContent = msg; toastEl.classList.add('show'); setTimeout(()=> toastEl.classList.remove('show'), time); }
+    function showStatus(msg, isError=false, persistent=false){ const el = document.getElementById('bgStatus'); el.style.display = 'block'; el.style.color = isError ? 'var(--danger)' : ''; el.textContent = msg; if(!persistent) setTimeout(()=> el.style.display='none', 2200); }
+
+    function limparFormulario(){ document.getElementById('nomeMidia').value=''; document.getElementById('linkMidia').value=''; document.getElementById('ordemMidia').value=''; document.getElementById('ativoMidia').checked=true; document.getElementById('salvarAuto').checked=false; showStatus('Formulário limpo.'); }
+
+    /****************
+     * UTIL
+     ****************/
+    function extrairID(link){ const m = link && link.match(/\/d\/([\w-]+)/); return m?m[1]:null; }
+    function extractFilenameFromUrl(url){ try{ const u=new URL(url); const p=u.pathname.split('/'); return p.pop()||p.pop(); }catch{ return null } }
+    function extFromUrl(url){ try{ const u=new URL(url); const m=u.pathname.toLowerCase().match(/\.([a-z0-9]{2,6})(\?.*)?$/); return m?m[1]:null }catch{return null} }
+
+    function detectaTipoPorUrl(){ const link = (document.getElementById('linkMidia').value||'').trim(); if(!link) return; const ext = extFromUrl(link); let tipo = ''; if(ext){ if(['png','jpg','jpeg','gif','webp','bmp','svg'].includes(ext)) tipo='IMAGEM'; if(['mp4','webm','ogg','mov','mkv'].includes(ext)) tipo='VIDEO'; } document.getElementById('linkMidia').dataset.inferredType = tipo; }
+
+    /****************
+     * LIST MEDIA (sem auth — todas as mídias são visíveis/edítaveis)
+     ****************/
+    async function listarMidias(){
+      if(!db) return;
+      const container = document.getElementById('list'); container.innerHTML='';
+      const search = (document.getElementById('searchInput').value||'').toLowerCase().trim();
+      let count=0;
+
+      let qSnap;
+      try{
+        qSnap = await db.collection('midias').orderBy('ordem').get();
+      }catch(e){
+        console.error('listarMidias query error', e);
+        container.innerHTML = `<div class="small-muted">Erro ao carregar mídias: ${escapeHtml(e.message || 'Verifique permissões/índices')}.</div>`;
+        return;
+      }
+
+      for(const doc of qSnap.docs){
+        const data = doc.data(); const id = doc.id;
+        const nome = data.nome || extractFilenameFromUrl(data.url) || 'Sem nome';
+        const url = data.url||'';
+        const tipo = (data.tipo||'').toUpperCase() || (extFromUrl(url)==='mp4'?'VIDEO':'IMAGEM');
+        const ordem = data.ordem||0; const ativo = data.ativo!==false;
+        const hay = (nome+' '+url+' '+tipo).toLowerCase();
+        if(search && !hay.includes(search)) continue;
+        count++;
+
+        const card = document.createElement('div'); card.className='card';
+        const thumb = document.createElement('div'); thumb.className='thumb';
+        if(url.match(/\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i) || tipo==='IMAGEM'){
+          const img = document.createElement('img'); img.src=url; img.alt=nome; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover';
+          thumb.appendChild(img);
+        } else if(tipo==='VIDEO' || url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i)){
+          thumb.textContent='Vídeo';
+          generateVideoThumbnail(url,320,180).then(dataUrl=>{ if(dataUrl){ thumb.innerHTML=''; const img=document.createElement('img'); img.src=dataUrl; img.alt=nome; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='cover'; thumb.appendChild(img); }}).catch(()=>{});
+        } else thumb.textContent='Arquivo';
+
+        const meta=document.createElement('div'); meta.className='meta';
+        const title=document.createElement('div'); title.className='title'; title.textContent=nome;
+        const info=document.createElement('div'); info.className='info'; info.textContent=`${tipo} • Ordem: ${ordem} • ${ativo?'Ativo':'Inativo'}`;
+
+        const actions=document.createElement('div'); actions.className='actions';
+        const ver=document.createElement('button'); ver.className='action-btn'; ver.textContent='Abrir'; ver.onclick=()=> window.open(url,'_blank');
+        const copiar=document.createElement('button'); copiar.className='action-btn copy'; copiar.textContent='Copiar link'; copiar.onclick=async ()=>{ try{ await navigator.clipboard.writeText(url); toast('Link copiado') }catch{ showStatus('Não foi possível copiar', true, true) } };
+
+        const editar=document.createElement('button'); editar.className='action-btn'; editar.textContent='Editar nome/ordem';
+        editar.onclick=async ()=>{
+          const novoNome = prompt('Editar nome da mídia:', nome); if(novoNome===null) return;
+          const novoOrdem = prompt('Editar ordem (número):', ordem);
+          if(novoOrdem===null) return;
+          const nv = novoNome.trim()||'Sem nome'; const no = parseInt(novoOrdem);
+          if(isNaN(no)) return alert('Ordem inválida');
+          try{ await db.collection('midias').doc(id).update({ nome: nv, ordem: no }); listarMidias(); showStatus('Atualizado.'); }catch(e){ showStatus('Erro: '+e.message, true, true); }
+        };
+
+        const excluir=document.createElement('button'); excluir.className='action-btn danger'; excluir.textContent='Excluir';
+        excluir.onclick=async ()=>{ if(!confirm(`Excluir "${nome}"?`)) return; try{ await db.collection('midias').doc(id).delete(); listarMidias(); toast('Mídia excluída') }catch(e){ showStatus('Erro: '+e.message, true, true) } };
+
+        actions.appendChild(ver); actions.appendChild(copiar); actions.appendChild(editar); actions.appendChild(excluir);
+
+        meta.appendChild(title); meta.appendChild(info); meta.appendChild(actions);
+        card.appendChild(thumb); card.appendChild(meta); container.appendChild(card);
+      }
+
+      document.getElementById('noMedia').style.display = count? 'none':'block';
+      if(!count) container.innerHTML='';
+    }
+
+    /****************
+     * ADD MEDIA (link) — sem owner
+     ****************/
+    async function adicionarMidia(){
+      if(!db) return alert('Firestore não configurado.');
+      const nome = (document.getElementById('nomeMidia').value||'').trim();
+      let link = (document.getElementById('linkMidia').value||'').trim();
+      const ordemVal = (document.getElementById('ordemMidia').value||'').trim();
+      const ordem = ordemVal===''?NaN:parseInt(ordemVal);
+      const ativo = document.getElementById('ativoMidia').checked;
+      if(!link || isNaN(ordem)) return alert('Verifique: link e ordem são necessários.');
+      const drive = extrairID(link);
+      if(drive) link = `https://drive.google.com/uc?export=download&id=${drive}`;
+      detectaTipoPorUrl();
+      let tipo = document.getElementById('linkMidia').dataset.inferredType || '';
+      if(!tipo){ const ext = extFromUrl(link)||''; if(['png','jpg','jpeg','gif','webp','bmp','svg'].includes(ext)) tipo='IMAGEM'; if(['mp4','webm','ogg','mov','mkv'].includes(ext)) tipo='VIDEO'; }
+      if(!tipo) tipo='IMAGEM';
+      try{
+        await db.collection('midias').add({
+          nome: nome || extractFilenameFromUrl(link) || 'Sem nome',
+          url: link,
+          tipo,
+          ordem,
+          ativo,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        showStatus('Mídia salva com sucesso.'); toast('Mídia adicionada'); limparFormulario(); showModal(false); listarMidias();
+      }catch(err){ console.error(err); showStatus('Erro ao salvar: '+err.message, true, true); }
+    }
+
+    /****************
+     * FRAMES / FRASES
+     ****************/
+    async function adicionarFrase(){
+      if(!db) return alert('Firestore não configurado.');
+      const frase = (document.getElementById('novaFrase').value||'').trim();
+      if(!frase) return alert('Digite uma frase.');
+      const ref = db.collection('config').doc('frases');
+      const doc = await ref.get();
+      const arr = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
+      arr.push(frase);
+      await ref.set({ frasesRodape: arr });
+      document.getElementById('novaFrase').value=''; listarFrases(); toast('Frase adicionada');
+    }
+
+    async function listarFrases(){
+      if(!db) return;
+      const doc = await db.collection('config').doc('frases').get();
+      const arr = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
+      const list = document.getElementById('fraseList'); list.innerHTML='';
+      arr.forEach((f,i)=>{
+        const el = document.createElement('div'); el.style.display='flex'; el.style.justifyContent='space-between'; el.style.alignItems='center'; el.style.padding='8px'; el.style.borderRadius='8px'; el.style.background='#fff'; el.style.border='1px solid #f0f6fb';
+        const span = document.createElement('div'); span.textContent=f; span.style.flex='1';
+        const btn = document.createElement('button'); btn.className='btn.ghost'; btn.textContent='Excluir'; btn.style.background='transparent';
+        btn.onclick = async ()=>{ if(!confirm('Excluir frase?')) return; arr.splice(i,1); await db.collection('config').doc('frases').set({frasesRodape:arr}); listarFrases(); };
+        el.appendChild(span); el.appendChild(btn); list.appendChild(el);
+      });
+      if(!arr.length) document.getElementById('fraseList').innerHTML='<div class="muted">Nenhuma frase adicionada.</div>';
+    }
+
+    /****************
+     * UPLOAD CATBOX
+     ****************/
+    const fileInput = document.getElementById('fileInput');
+    const chooseFileBtn = document.getElementById('chooseFileBtn');
+    const chooseFileBtnModal = document.getElementById('chooseFileBtnModal');
+    chooseFileBtn.addEventListener('click', ()=> fileInput.click());
+    chooseFileBtnModal.addEventListener('click', ()=> fileInput.click());
+
+    fileInput.addEventListener('change', async ()=>{
+      const file = fileInput.files[0]; if(!file) return;
+      showStatus('Enviando para Catbox...', false, true);
+      try{
+        const url = await uploadToCatbox(file);
+        document.getElementById('linkMidia').value = url;
+        document.getElementById('nomeMidia').value = file.name;
+        const mime = file.type||'';
+        const tipo = mime.startsWith('image/') ? 'IMAGEM' : (mime.startsWith('video/') ? 'VIDEO' : '');
+        document.getElementById('linkMidia').dataset.inferredType = tipo;
+        const salvarAuto = document.getElementById('salvarAuto').checked;
+        if(salvarAuto){
+          let ordemVal = document.getElementById('ordemMidia').value; let ordem = ordemVal===''?9999:parseInt(ordemVal);
+          const ativo = document.getElementById('ativoMidia').checked;
+          await db.collection('midias').add({
+            nome: file.name,
+            url,
+            tipo: tipo||'IMAGEM',
+            ordem,
+            ativo,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          limparFormulario(); listarMidias(); toast('Upload e salvamento concluídos');
+        } else {
+          showStatus('Upload concluído. Revisar e salvar.', false, true);
         }
+      }catch(err){ console.error(err); showStatus('Erro upload: '+err.message, true, true); }
+      finally { fileInput.value=''; }
+    });
 
-        async function adicionarMidia() {
-            const link = document.getElementById("linkMidia").value.trim();
-            const tipo = document.getElementById("tipoMidia").value.trim().toUpperCase();
-            const ordem = parseInt(document.getElementById("ordemMidia").value.trim());
-            const ativo = document.getElementById("ativoMidia").checked;
+    async function uploadToCatbox(file){
+      const endpoint = "https://corsproxy.io/?https://catbox.moe/user/api.php";
+      const form = new FormData(); form.append('reqtype','fileupload'); form.append('fileToUpload', file);
+      const res = await fetch(endpoint, { method:'POST', body: form });
+      const text = await res.text();
+      if(text && text.startsWith('https://')) return text.trim();
+      throw new Error(text || 'Resposta inesperada do servidor');
+    }
 
-            if (!link || isNaN(ordem)) {
-                alert("Verifique o link e a ordem antes de salvar.");
-                return;
-            }
+    /****************
+     * VIDEO THUMBNAIL
+     ****************/
+    function generateVideoThumbnail(url, w=320, h=180, timeoutMs=3500){
+      return new Promise((resolve,reject)=>{
+        try{
+          const v = document.createElement('video');
+          v.crossOrigin='anonymous'; v.muted=true; v.playsInline=true; v.src=url; v.preload='metadata';
+          const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h; const ctx = canvas.getContext('2d');
+          let done=false;
+          const cleanup=()=>{ try{ v.pause(); v.src=''; v.removeAttribute('src'); }catch(e){} }
+          const fail=(err)=>{ if(done) return; done=true; cleanup(); reject(err); }
+          const succeed=()=>{ if(done) return; try{ ctx.drawImage(v,0,0,w,h); const d=canvas.toDataURL('image/jpeg',0.75); done=true; cleanup(); resolve(d);}catch(e){ fail(e); } }
+          v.addEventListener('loadeddata', ()=>{ try{
+            const seekTo = Math.min(0.8, Math.max(0.1, (v.duration||1)*0.1));
+            const onSeek = ()=> { succeed(); v.removeEventListener('seeked', onSeek); };
+            v.addEventListener('seeked', onSeek);
+            try{ v.currentTime = seekTo; }catch(e){ setTimeout(()=>succeed(),700); }
+          }catch(e){ fail(e); }});
+          v.addEventListener('error', ()=> fail(new Error('Erro carregar vídeo')));
+          setTimeout(()=> { if(!done) fail(new Error('Timeout thumbnail')); }, timeoutMs);
+        }catch(e){ reject(e); }
+      });
+    }
 
-            // Se for Google Drive, converte para o formato direto
-            let urlFinal = link;
-            const driveMatch = link.match(/\/d\/([\w-]+)/);
-            if (driveMatch) {
-                const id = driveMatch[1];
-                urlFinal = `https://drive.google.com/uc?export=download&id=${id}`;
-            }
+    // INIT
+    window.addEventListener('load', ()=>{ if(db){ listarFrases(); listarMidias(); } else { const msg = document.createElement('div'); msg.style.color='var(--danger)'; msg.style.padding='8px'; msg.style.borderRadius='8px'; msg.textContent = 'Firestore não configurado — cole o firebaseConfig no topo deste documento.'; document.querySelector('.panel').prepend(msg); } });
 
-            await db.collection("midias").add({
-                url: urlFinal,
-                tipo,
-                ordem,
-                ativo
-            });
-
-            document.getElementById("linkMidia").value = "";
-            document.getElementById("ordemMidia").value = "";
-            document.getElementById("ativoMidia").checked = true;
-
-            listarMidias();
-        }
-
-
-        async function listarMidias() {
-            const container = document.getElementById("listaMidias");
-            container.innerHTML = "";
-
-            const snapshot = await db.collection("midias").orderBy("ordem").get();
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const div = document.createElement("div");
-                div.className = "item-container";
-                div.innerHTML = `
-                    <span>${data.tipo.toUpperCase()} | Ordem: ${data.ordem} | ${data.ativo ? "Ativo" : "Inativo"}</span>
-                    <div>
-                        <a href="${data.url}" target="_blank">Ver</a>
-                        <button onclick="excluirMidia('${doc.id}')">Excluir</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        async function excluirMidia(id) {
-            await db.collection("midias").doc(id).delete();
-            listarMidias();
-        }
-
-        async function adicionarFrase() {
-            const frase = document.getElementById("novaFrase").value.trim();
-            if (!frase) return alert("Digite uma frase.");
-
-            const frasesDoc = db.collection("config").doc("frases");
-            const doc = await frasesDoc.get();
-            const frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
-
-            frases.push(frase);
-            await frasesDoc.set({
-                frasesRodape: frases
-            });
-
-            document.getElementById("novaFrase").value = '';
-            listarFrases();
-        }
-
-        async function listarFrases() {
-            const fraseList = document.getElementById("fraseList");
-            fraseList.innerHTML = '';
-
-            const doc = await db.collection("config").doc("frases").get();
-            const frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
-
-            frases.forEach((frase, index) => {
-                const div = document.createElement("div");
-                div.className = 'item-container';
-                div.innerHTML = `
-                    <span>${frase}</span>
-                    <button onclick="excluirFrase(${index})">Excluir</button>
-                `;
-                fraseList.appendChild(div);
-            });
-        }
-
-        async function excluirFrase(index) {
-            const frasesDoc = db.collection("config").doc("frases");
-            const doc = await frasesDoc.get();
-            let frases = doc.exists && doc.data().frasesRodape ? doc.data().frasesRodape : [];
-
-            frases.splice(index, 1);
-            await frasesDoc.set({
-                frasesRodape: frases
-            });
-
-            listarFrases();
-        }
-
-        // Inicialização
-        listarMidias();
-        listarFrases();
-    </script>
+    // atalhos
+    document.getElementById('openForm').addEventListener('click', ()=> showModal(true));
+  </script>
 </body>
-
 </html>
