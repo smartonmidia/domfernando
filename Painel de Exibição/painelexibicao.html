@@ -175,8 +175,10 @@
             margin-right: 5px;
         }
     </style>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 
 <body>
@@ -187,7 +189,7 @@
     <div id="main">
         <div id="ladoEsquerdo">
             <img id="publicidadeImg" alt="Publicidade" />
-            <video id="publicidadeVideo" muted autoplay loop></video>
+            <video id="publicidadeVideo" muted autoplay></video>
         </div>
 
         <div id="ladoDireito">
@@ -227,12 +229,19 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const database = firebase.database();
 
         const senhaNumeroEl = document.getElementById("senhaAtualNumero");
         const mesaEl = document.getElementById("mesaAtual");
         const historicoListEl = document.getElementById("historicoList");
         const audioChamada = document.getElementById("audioChamada");
 
+        // Status online do painel
+        const statusRef = database.ref("statusPainel");
+        statusRef.set(true).catch(err => console.error("Erro ao marcar status online:", err));
+        statusRef.onDisconnect().set(false).catch(err => console.error("Erro no onDisconnect:", err));
+
+        // Atualização de senhas
         let ultimaSenhaId = null;
         let ultimoReforco = null;
 
@@ -268,7 +277,7 @@
         function mostrarFallback() {
             const imgEl = document.getElementById("publicidadeImg");
             const videoEl = document.getElementById("publicidadeVideo");
-            imgEl.src = "https://via.placeholder.com/800x450?text=Sem+publicidade+disponível";
+            imgEl.src = "https://via.placeholder.com/800x450?text=Sem+publicidade+dispon%C3%ADvel";
             imgEl.style.display = "block";
             imgEl.style.opacity = 1;
             videoEl.style.display = "none";
@@ -288,41 +297,99 @@
             if (midias.length === 0) return mostrarFallback();
 
             let index = 0;
+            let videoPlayTimeout = null;
 
             async function mostrarMidia() {
                 const midia = midias[index];
                 const tipo = (midia.tipo || "").toLowerCase().trim();
 
+                // reset visibilidade
                 imgEl.style.opacity = 0;
                 videoEl.style.opacity = 0;
+                await new Promise(r => setTimeout(r, 1000));
 
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // cleanup handlers from previous media
+                imgEl.onerror = null;
+                videoEl.onerror = null;
+                videoEl.onended = null;
+                videoEl.onplaying = null;
+                if (videoPlayTimeout) {
+                    clearTimeout(videoPlayTimeout);
+                    videoPlayTimeout = null;
+                }
 
                 if (tipo === "video") {
+                    videoEl.loop = false;
+
                     imgEl.style.display = "none";
                     videoEl.src = midia.url;
                     videoEl.style.display = "block";
                     videoEl.load();
-                    videoEl.play();
+
+                    // If video errors to load/play, skip to next automatically
+                    videoEl.onerror = () => {
+                        console.error("Erro ao carregar/exibir vídeo:", midia.url);
+                        // avançar para a próxima mídia
+                        index = (index + 1) % midias.length;
+                        // pequena espera para evitar loop instantâneo em caso de erro generalizado
+                        setTimeout(mostrarMidia, 500);
+                    };
+
+                    // Safety: if video doesn't start playing within 5 seconds, consider it failed
+                    videoEl.onplaying = () => {
+                        if (videoPlayTimeout) {
+                            clearTimeout(videoPlayTimeout);
+                            videoPlayTimeout = null;
+                        }
+                    };
+
+
+
                     videoEl.style.opacity = 1;
+
+                    registrarExibicao({
+                        arquivo: midia.url.split("/").pop(),
+                        tipo: "video",
+                        nome: midia.nome || midia.titulo || midia.displayName || midia.url.split("/").pop()
+                    });
+
+                    videoEl.onended = () => {
+                        index = (index + 1) % midias.length;
+                        mostrarMidia();
+                    };
+
                 } else if (tipo === "imagem") {
+                    // Tratamento de erro para imagens: se falhar, pula para a próxima
+                    imgEl.onerror = () => {
+                        console.error("Erro ao carregar imagem:", midia.url);
+                        index = (index + 1) % midias.length;
+                        setTimeout(mostrarMidia, 500);
+                    };
+
                     videoEl.pause();
                     videoEl.style.display = "none";
                     imgEl.src = midia.url;
                     imgEl.style.display = "block";
                     imgEl.style.opacity = 1;
+
+                    registrarExibicao({
+                        arquivo: midia.url.split("/").pop(),
+                        tipo: "imagem"
+                    });
+
+                    setTimeout(() => {
+                        index = (index + 1) % midias.length;
+                        mostrarMidia();
+                    }, 25000);
                 } else {
                     mostrarFallback();
                 }
-
-                index = (index + 1) % midias.length;
             }
 
             mostrarMidia();
-            setInterval(mostrarMidia, 25000);
         }
 
-        // Atualizar data/hora
+        // Atualização de data/hora
         setInterval(() => {
             const agora = new Date();
             document.getElementById("dataAtual").innerText = agora.toLocaleDateString();
@@ -334,15 +401,15 @@
 
         // Frases do rodapé
         db.collection("config").doc("frases").get().then(doc => {
-            const frases = doc.data().frasesRodape || ["Aguarde sua vez..."];
-            let index = 0;
+            const frases = doc.exists ? doc.data().frasesRodape || ["Aguarde sua vez..."] : ["Aguarde sua vez..."];
+            let i = 0;
             setInterval(() => {
-                document.getElementById("fraseRodape").innerText = frases[index];
-                index = (index + 1) % frases.length;
+                document.getElementById("fraseRodape").innerText = frases[i];
+                i = (i + 1) % frases.length;
             }, 10000);
         });
 
-        // Alternância entre Data/Hora e Temperatura com fade
+        // Alternância entre Data/Hora e Temperatura
         const cidades = ["São Paulo", "Santos", "Guarujá", "Bertioga", "São Sebastião", "Praia Grande", "Mongaguá", "Ilha Comprida"];
         let cidadeIndex = 0;
 
@@ -367,25 +434,32 @@
             const blocoTemp = document.getElementById("blocoTemperatura");
 
             if (mostrarDataHora) {
-                blocoData.classList.remove("fade-in");
-                blocoData.classList.add("fade-out");
-                blocoTemp.classList.remove("fade-out");
-                blocoTemp.classList.add("fade-in");
+                blocoData.classList.replace("fade-in", "fade-out");
+                blocoTemp.classList.replace("fade-out", "fade-in");
             } else {
-                blocoTemp.classList.remove("fade-in");
-                blocoTemp.classList.add("fade-out");
-                blocoData.classList.remove("fade-out");
-                blocoData.classList.add("fade-in");
+                blocoTemp.classList.replace("fade-in", "fade-out");
+                blocoData.classList.replace("fade-out", "fade-in");
             }
-
             mostrarDataHora = !mostrarDataHora;
         }, 10000);
 
+        function registrarExibicao(dados) {
+            const agora = new Date().toISOString();
+            const registro = {
+                arquivo: dados.arquivo, // ex: WZnWjfs.mp4
+                nome: dados.nome || null, // ex: "Bruno Honda"
+                tipo: dados.tipo,
+                timestamp: agora,
+                painel: "Painel01"
+            };
+
+            const historicoRef = firebase.database().ref("historicoExibicoes");
+            historicoRef.push(registro)
+                .then(() => console.log("✅ Exibição registrada:", registro.nome || registro.arquivo))
+                .catch(err => console.error("Erro ao registrar exibição:", err));
+        }
         document.addEventListener("DOMContentLoaded", carregarMidiasDoFirestore);
     </script>
 </body>
 
-
 </html>
-
-
